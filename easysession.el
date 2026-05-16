@@ -1528,19 +1528,20 @@ exact state of your open files."
         (ignore window-state-change-hook)
         (ignore tab-bar-tab-post-select-functions)
 
-        (dolist (frame (frame-list))
-          (with-selected-frame frame
-            (save-window-excursion
-              (let* ((tabs (funcall tab-bar-tabs-function frame))
-                     (original-index (tab-bar--current-tab-index tabs frame))
-                     (tab-count (length tabs)))
-                (when (> tab-count 1)
-                  (unwind-protect
-                      (dotimes (index tab-count)
-                        (unless (eq index original-index)
-                          (tab-bar-select-tab (1+ index))))
-                    (when original-index
-                      (tab-bar-select-tab (1+ original-index)))))))))))))
+        (let ((inhibit-quit t))
+          (dolist (frame (frame-list))
+            (with-selected-frame frame
+              (save-window-excursion
+                (let* ((tabs (funcall tab-bar-tabs-function frame))
+                       (original-index (tab-bar--current-tab-index tabs frame))
+                       (tab-count (length tabs)))
+                  (when (> tab-count 1)
+                    (unwind-protect
+                        (dotimes (index tab-count)
+                          (unless (eq index original-index)
+                            (tab-bar-select-tab (1+ index))))
+                      (when original-index
+                        (tab-bar-select-tab (1+ original-index))))))))))))))
 
 ;;; Internal functions: handlers
 
@@ -2363,30 +2364,33 @@ loads the current session if set, or defaults to the \"main\" session."
                 (run-hooks 'easysession-before-load-hook)
 
                 ;; Load and evaluate session
-                (condition-case err
-                    (progn
-                      ;; Call handlers
-                      (dolist (handler load-handlers)
-                        (when handler
-                          (funcall handler session-data)))
+                (let ((inhibit-quit t))
+                  (condition-case err
+                      (progn
+                        ;; Call handlers
+                        (dolist (handler load-handlers)
+                          (when handler
+                            (funcall handler session-data)))
 
-                      ;; Load the frame set
-                      ;; Inhibiting redisplay prevents the visual flickering of
-                      ;; windows splitting and resizing. It requires no user
-                      ;; input, making it safe to freeze the screen.
-                      (let ((inhibit-redisplay t))
-                        (easysession--load-frameset
-                         session-data
-                         (bound-and-true-p easysession-frameset-restore-geometry)))
+                        ;; Load the frame set Inhibiting redisplay prevents the
+                        ;; visual flickering of windows splitting and resizing.
+                        ;; It requires no user input, making it safe to freeze
+                        ;; the screen.
+                        (let ((inhibit-redisplay t))
+                          (easysession--load-frameset
+                           session-data
+                           (bound-and-true-p
+                            easysession-frameset-restore-geometry)))
 
-                      (when (called-interactively-p 'any)
-                        (easysession--message "Session loaded: %s" session-name))
+                        (when (called-interactively-p 'any)
+                          (easysession--message "Session loaded: %s"
+                                                session-name))
 
-                      (easysession-set-current-session-name session-name)
-                      (setq easysession--session-loaded t))
-                  (error
-                   (error "[easysession] easysession-load error: %s"
-                          (error-message-string err)))))))
+                        (easysession-set-current-session-name session-name)
+                        (setq easysession--session-loaded t))
+                    (error
+                     (error "[easysession] easysession-load error: %s"
+                            (error-message-string err))))))))
 
             ;; These now run regardless of whether the session was new or
             ;; existed
@@ -2601,7 +2605,8 @@ AUTO-SAVE is non-nil when the save is triggered by a background timer."
                     (if (fboundp 'elisp-autofmt-buffer)
                         (elisp-autofmt-buffer)
                       (pp-buffer)))
-                  (write-region (point-min) (point-max) session-file nil 'silent)
+                  (let ((inhibit-quit t))
+                    (write-region (point-min) (point-max) session-file nil 'silent))
                   nil))
 
               (when (called-interactively-p 'any)
