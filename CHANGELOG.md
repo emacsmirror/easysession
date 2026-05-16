@@ -14,6 +14,8 @@
 
 * `easysession-reset`, `easysession-save-session-and-close-frames`, and `easysession-load`: Set `inhibit-redisplay` to `t` to prevent visual flickering caused by window splitting and resizing. Modifying the frameset and windows requires no user input, making it safe to freeze the display.
 
+* Optimize session I/O with temporary GC threshold increase.
+
 ## 1.2.1
 
 * Update the auto-save timer dynamically when `easysession-save-interval` changes by centralizing the timer logic into `easysession--update-timer`. This ensures the timer is correctly cancelled and restarted based on the current mode state. A `:set` function was added to `easysession-save-interval` so that modifying the variable immediately updates the running timer without requiring a restart of the mode.

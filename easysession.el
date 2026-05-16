@@ -879,7 +879,20 @@ of their visibility.")
 
 (defvar uniquify-buffer-name-style)
 
+(defvar easysession-gc-threshold (* 128 1024 1024)
+  "GC threshold for temporary increase.")
+
+(defvar easysession-gc-percentage 0.3
+  "GC percentage for temporary increase.")
+
 ;;; Internal functions
+
+(defmacro easysession--with-increased-gc (&rest body)
+  "Evaluate BODY with temporarily increased garbage collection limits."
+  (declare (indent 0) (debug t))
+  `(let ((gc-cons-threshold (max gc-cons-threshold easysession-gc-threshold))
+         (gc-cons-percentage (max gc-cons-percentage easysession-gc-percentage)))
+     ,@body))
 
 (defun easysession--frameset-filter-name-if-explicit (_current
                                                       _filtered
@@ -1992,18 +2005,20 @@ is later initialized by the Emacs daemon, EasySession restores the state as if
 the process had been freshly started."
   (interactive)
   (when (yes-or-no-p "[easysession] Save session and close all frames? ")
-    (save-some-buffers)
-    (easysession-unload)
-    ;; Freeze display before tearing down the GUI
-    (let ((inhibit-redisplay t))
-      ;; Close all frames
-      (dolist (frame (frame-list))
-        (when (and (frame-live-p frame)
-                   (or (not (daemonp))
-                       (not (string-equal (terminal-name (frame-terminal frame))
-                                          "initial_terminal"))))
-          (ignore-errors
-            (delete-frame frame t)))))))
+    (easysession--with-increased-gc
+      (save-some-buffers)
+      (easysession-unload)
+      ;; Freeze display before tearing down the GUI
+      (let ((inhibit-redisplay t))
+        ;; Close all frames
+        (dolist (frame (frame-list))
+          (when (and (frame-live-p frame)
+                     (or (not (daemonp))
+                         (not (string-equal
+                               (terminal-name (frame-terminal frame))
+                               "initial_terminal"))))
+            (ignore-errors
+              (delete-frame frame t))))))))
 
 ;;;###autoload
 (defun easysession-setup ()
@@ -2119,23 +2134,24 @@ The returned list contains live buffers only."
   ;; Hooks
   (run-hooks 'easysession-before-reset-hook)
 
-  (let ((inhibit-redisplay t))
-    ;; Delete frames
-    (delete-other-frames)
+  (easysession--with-increased-gc
+    (let ((inhibit-redisplay t))
+      ;; Delete frames
+      (delete-other-frames)
 
-    ;; Close tabs
-    (when (and (bound-and-true-p tab-bar-mode)
-               (fboundp 'tab-bar-close-other-tabs))
-      (tab-bar-close-other-tabs))
+      ;; Close tabs
+      (when (and (bound-and-true-p tab-bar-mode)
+                 (fboundp 'tab-bar-close-other-tabs))
+        (tab-bar-close-other-tabs))
 
-    ;; Close windows
-    (delete-other-windows)
+      ;; Close windows
+      (delete-other-windows)
 
-    ;; Switch to the scratch buffer
-    (switch-to-buffer (easysession--get-scratch-buffer-create) nil t))
+      ;; Switch to the scratch buffer
+      (switch-to-buffer (easysession--get-scratch-buffer-create) nil t))
 
-  ;; Kill all buffers
-  (easysession-kill-all-buffers)
+    ;; Kill all buffers
+    (easysession-kill-all-buffers))
 
   ;; Hooks
   (run-hooks 'easysession-after-reset-hook))
@@ -2290,96 +2306,97 @@ loads the current session if set, or defaults to the \"main\" session."
                 ""))
           (and easysession-switch-to-exclude-current
                easysession--session-loaded))))
-  (setq easysession-load-in-progress nil)
-  (unwind-protect
-      (progn
-        (let* ((session-name (or session-name
-                                 easysession--current-session-name
-                                 ;; The default session loaded when none is
-                                 ;; specified is 'main'.
-                                 "main"))
-               (load-handlers (easysession-get-load-handlers))
-               (session-file
-                (let ((file-name (easysession-get-session-file-path
-                                  session-name)))
-                  (when (file-exists-p file-name)
-                    file-name))))
-          ;; Pre-validate handlers before proceeding
-          (dolist (handler load-handlers)
-            (when (and handler
-                       (not (and (symbolp handler)
-                                 (fboundp handler))))
-              (error
-               "[easysession] The following load handler is not a defined function: %s"
-               handler)))
-
-          (setq easysession-load-in-progress session-name)
-          (setq easysession--session-loaded nil)
-
-          (cond
-           ;; The session file does not exist. This is a new session.
-           ((not session-file)
-            ;; TODO: Use `easysession-new-session-hook' hook?
-            (easysession-set-current-session-name session-name)
-            (setq easysession--session-loaded t)
-            (run-hooks 'easysession-new-session-hook))
-
-           ;; The session exists
-           (t
-            (let ((session-data
-                   (let ((coding-system-for-read 'utf-8-emacs)
-                         (file-coding-system-alist nil))
-                     (with-temp-buffer
-                       (insert-file-contents session-file)
-                       (goto-char (point-min))
-
-                       (condition-case err
-                           (read (current-buffer))
-                         (error
-                          (error "[easysession] easysession-load error: %s: %s"
-                                 session-file
-                                 (error-message-string err))))))))
-
-              ;; Load buffers first because the cursor, window-start, or
-              ;; hscroll might be altered by packages such as saveplace.
-              ;; This will allow the frameset to modify the cursor later on.
-              (run-hooks 'easysession-before-load-hook)
-
-              ;; Load and evaluate session
-              (condition-case err
-                  (progn
-                    ;; Call handlers
-                    (dolist (handler load-handlers)
-                      (when handler
-                        (funcall handler session-data)))
-
-                    ;; Load the frame set
-                    ;; Inhibiting redisplay prevents the visual flickering of
-                    ;; windows splitting and resizing. It requires no user
-                    ;; input, making it safe to freeze the screen.
-                    (let ((inhibit-redisplay t))
-                      (easysession--load-frameset
-                       session-data
-                       (bound-and-true-p easysession-frameset-restore-geometry)))
-
-                    (when (called-interactively-p 'any)
-                      (easysession--message "Session loaded: %s" session-name))
-
-                    (easysession-set-current-session-name session-name)
-                    (setq easysession--session-loaded t))
+  (easysession--with-increased-gc
+    (setq easysession-load-in-progress nil)
+    (unwind-protect
+        (progn
+          (let* ((session-name (or session-name
+                                   easysession--current-session-name
+                                   ;; The default session loaded when none is
+                                   ;; specified is 'main'.
+                                   "main"))
+                 (load-handlers (easysession-get-load-handlers))
+                 (session-file
+                  (let ((file-name (easysession-get-session-file-path
+                                    session-name)))
+                    (when (file-exists-p file-name)
+                      file-name))))
+            ;; Pre-validate handlers before proceeding
+            (dolist (handler load-handlers)
+              (when (and handler
+                         (not (and (symbolp handler)
+                                   (fboundp handler))))
                 (error
-                 (error "[easysession] easysession-load error: %s"
-                        (error-message-string err)))))))
+                 "[easysession] The following load handler is not a defined function: %s"
+                 handler)))
 
-          ;; These now run regardless of whether the session was new or
-          ;; existed
-          (when easysession--session-loaded
-            (run-hooks 'easysession-after-load-hook))
+            (setq easysession-load-in-progress session-name)
+            (setq easysession--session-loaded nil)
 
-          (when easysession-fontify
-            (easysession--ensure-font-lock))))
-    ;; Unwind protect
-    (setq easysession-load-in-progress nil)))
+            (cond
+             ;; The session file does not exist. This is a new session.
+             ((not session-file)
+              ;; TODO: Use `easysession-new-session-hook' hook?
+              (easysession-set-current-session-name session-name)
+              (setq easysession--session-loaded t)
+              (run-hooks 'easysession-new-session-hook))
+
+             ;; The session exists
+             (t
+              (let ((session-data
+                     (let ((coding-system-for-read 'utf-8-emacs)
+                           (file-coding-system-alist nil))
+                       (with-temp-buffer
+                         (insert-file-contents session-file)
+                         (goto-char (point-min))
+
+                         (condition-case err
+                             (read (current-buffer))
+                           (error
+                            (error "[easysession] easysession-load error: %s: %s"
+                                   session-file
+                                   (error-message-string err))))))))
+
+                ;; Load buffers first because the cursor, window-start, or
+                ;; hscroll might be altered by packages such as saveplace.
+                ;; This will allow the frameset to modify the cursor later on.
+                (run-hooks 'easysession-before-load-hook)
+
+                ;; Load and evaluate session
+                (condition-case err
+                    (progn
+                      ;; Call handlers
+                      (dolist (handler load-handlers)
+                        (when handler
+                          (funcall handler session-data)))
+
+                      ;; Load the frame set
+                      ;; Inhibiting redisplay prevents the visual flickering of
+                      ;; windows splitting and resizing. It requires no user
+                      ;; input, making it safe to freeze the screen.
+                      (let ((inhibit-redisplay t))
+                        (easysession--load-frameset
+                         session-data
+                         (bound-and-true-p easysession-frameset-restore-geometry)))
+
+                      (when (called-interactively-p 'any)
+                        (easysession--message "Session loaded: %s" session-name))
+
+                      (easysession-set-current-session-name session-name)
+                      (setq easysession--session-loaded t))
+                  (error
+                   (error "[easysession] easysession-load error: %s"
+                          (error-message-string err)))))))
+
+            ;; These now run regardless of whether the session was new or
+            ;; existed
+            (when easysession--session-loaded
+              (run-hooks 'easysession-after-load-hook))
+
+            (when easysession-fontify
+              (easysession--ensure-font-lock))))
+      ;; Unwind protect
+      (setq easysession-load-in-progress nil))))
 
 ;;;###autoload
 (defun easysession-unload ()
@@ -2488,111 +2505,112 @@ AUTO-SAVE is non-nil when the save is triggered by a background timer."
     (user-error "%s%s"
                 "[easysession] No session is active. "
                 "Load a session with `easysession-switch-to'"))
-  (unwind-protect
-      (progn
-        (setq easysession-save-in-progress t)
-        (run-hooks 'easysession-before-save-hook)
-        (when easysession-refresh-tab-bar
-          (easysession--refresh-tabs-all-frames))
+  (easysession--with-increased-gc
+    (unwind-protect
+        (progn
+          (setq easysession-save-in-progress t)
+          (run-hooks 'easysession-before-save-hook)
+          (when easysession-refresh-tab-bar
+            (easysession--refresh-tabs-all-frames))
 
-        (let* ((session-name (if session-name
-                                 session-name
-                               easysession--current-session-name))
-               (session-file (easysession-get-session-file-path session-name))
-               (data-frameset (easysession--save-frameset session-name))
-               (data-frameset-geometry (easysession--save-frameset
-                                        session-name t))
-               (session-data nil)
-               (session-dir (file-name-directory session-file)))
-          ;; Frameset
-          (push (cons "frameset" data-frameset) session-data)
-          (push (cons "frameset-geo" data-frameset-geometry) session-data)
+          (let* ((session-name (if session-name
+                                   session-name
+                                 easysession--current-session-name))
+                 (session-file (easysession-get-session-file-path session-name))
+                 (data-frameset (easysession--save-frameset session-name))
+                 (data-frameset-geometry (easysession--save-frameset
+                                          session-name t))
+                 (session-data nil)
+                 (session-dir (file-name-directory session-file)))
+            ;; Frameset
+            (push (cons "frameset" data-frameset) session-data)
+            (push (cons "frameset-geo" data-frameset-geometry) session-data)
 
-          ;; Buffers and file buffers
-          (let* ((buffers (funcall easysession-buffer-list-function)))
-            (dolist (handler (easysession-get-save-handlers))
-              (if (not (and handler
-                            (symbolp handler)
-                            (fboundp handler)))
-                  (error "The following save handler is not a defined function: %s"
-                         handler)
-                (let ((result (funcall handler buffers)))
-                  (when result
-                    (let* ((key (alist-get 'key result))
-                           (value (let ((value (alist-get 'buffers result)))
-                                    (if value
-                                        ;; Backward compatibility
-                                        value
-                                      ;; New: 'value
-                                      (alist-get 'value result))))
-                           (remaining-buffers (alist-get 'remaining-buffers result)))
-                      ;; Push results into session-data
-                      (push (cons key value) session-data)
+            ;; Buffers and file buffers
+            (let* ((buffers (funcall easysession-buffer-list-function)))
+              (dolist (handler (easysession-get-save-handlers))
+                (if (not (and handler
+                              (symbolp handler)
+                              (fboundp handler)))
+                    (error "The following save handler is not a defined function: %s"
+                           handler)
+                  (let ((result (funcall handler buffers)))
+                    (when result
+                      (let* ((key (alist-get 'key result))
+                             (value (let ((value (alist-get 'buffers result)))
+                                      (if value
+                                          ;; Backward compatibility
+                                          value
+                                        ;; New: 'value
+                                        (alist-get 'value result))))
+                             (remaining-buffers (alist-get 'remaining-buffers result)))
+                        ;; Push results into session-data
+                        (push (cons key value) session-data)
 
-                      ;; Generate legacy list of buffers
-                      (when (string= key "path-buffers")
-                        (let (legacy-list-buffers)
-                          (dolist (item value)
-                            (let ((path (alist-get 'buffer-path item))
-                                  (name (alist-get 'buffer-name item)))
-                              (when (and path name)
-                                (push (cons name path) legacy-list-buffers))))
+                        ;; Generate legacy list of buffers
+                        (when (string= key "path-buffers")
+                          (let (legacy-list-buffers)
+                            (dolist (item value)
+                              (let ((path (alist-get 'buffer-path item))
+                                    (name (alist-get 'buffer-name item)))
+                                (when (and path name)
+                                  (push (cons name path) legacy-list-buffers))))
 
-                          (push (cons "buffers" legacy-list-buffers) session-data)))
+                            (push (cons "buffers" legacy-list-buffers) session-data)))
 
-                      ;; The following optimizes buffer processing by updating
-                      ;; the list of buffers for the next iteration By setting
-                      ;; buffers to the remaining-buffers returned by each
-                      ;; handler function, it ensures that each subsequent
-                      ;; handler only processes buffers that have not yet been
-                      ;; handled. This approach avoids redundant processing of
-                      ;; buffers that have already been classified or processed
-                      ;; by previous handlers, resulting in more efficient
-                      ;; processing. As a result, each handler operates on a
-                      ;; progressively reduced set of buffers.
-                      (setq buffers remaining-buffers)))))))
+                        ;; The following optimizes buffer processing by updating
+                        ;; the list of buffers for the next iteration By setting
+                        ;; buffers to the remaining-buffers returned by each
+                        ;; handler function, it ensures that each subsequent
+                        ;; handler only processes buffers that have not yet been
+                        ;; handled. This approach avoids redundant processing of
+                        ;; buffers that have already been classified or processed
+                        ;; by previous handlers, resulting in more efficient
+                        ;; processing. As a result, each handler operates on a
+                        ;; progressively reduced set of buffers.
+                        (setq buffers remaining-buffers)))))))
 
-          (push (cons "file-format-version" easysession-file-version) session-data)
-          (push (cons "mtime" (format-time-string "%Y-%m-%d %H:%M:%S %Z"))
-                session-data)
-          (push
-           (cons
-            "comment"
-            "EasySession session file - https://github.com/jamescherti/easysession.el")
-           session-data)
+            (push (cons "file-format-version" easysession-file-version) session-data)
+            (push (cons "mtime" (format-time-string "%Y-%m-%d %H:%M:%S %Z"))
+                  session-data)
+            (push
+             (cons
+              "comment"
+              "EasySession session file - https://github.com/jamescherti/easysession.el")
+             session-data)
 
-          (cond ((file-exists-p session-dir)
-                 (unless (file-directory-p session-dir)
-                   (error "Cannot create session directory: '%s' is a file"
-                          session-dir)))
-                (t
-                 (make-directory session-dir :parents)))
+            (cond ((file-exists-p session-dir)
+                   (unless (file-directory-p session-dir)
+                     (error "Cannot create session directory: '%s' is a file"
+                            session-dir)))
+                  (t
+                   (make-directory session-dir :parents)))
 
-          (let* ((print-escape-newlines t)
-                 (print-length nil)
-                 (print-level nil)
-                 (float-output-format nil)
-                 (quote-sexp (easysession--serialize-to-quoted-sexp session-data))
-                 (print-quoted t))
-            (with-temp-buffer
-              (prin1 (cdr quote-sexp) (current-buffer))
-              (let ((coding-system-for-write 'utf-8-emacs)
-                    (write-region-annotate-functions nil)
-                    (write-region-post-annotation-function nil))
-                (when easysession-save-pretty-print
-                  (if (fboundp 'elisp-autofmt-buffer)
-                      (elisp-autofmt-buffer)
-                    (pp-buffer)))
-                (write-region (point-min) (point-max) session-file nil 'silent)
-                nil))
+            (let* ((print-escape-newlines t)
+                   (print-length nil)
+                   (print-level nil)
+                   (float-output-format nil)
+                   (quote-sexp (easysession--serialize-to-quoted-sexp session-data))
+                   (print-quoted t))
+              (with-temp-buffer
+                (prin1 (cdr quote-sexp) (current-buffer))
+                (let ((coding-system-for-write 'utf-8-emacs)
+                      (write-region-annotate-functions nil)
+                      (write-region-post-annotation-function nil))
+                  (when easysession-save-pretty-print
+                    (if (fboundp 'elisp-autofmt-buffer)
+                        (elisp-autofmt-buffer)
+                      (pp-buffer)))
+                  (write-region (point-min) (point-max) session-file nil 'silent)
+                  nil))
 
-            (when (called-interactively-p 'any)
-              (if (string= session-name easysession--current-session-name)
-                  (easysession--message "Session saved: %s" session-name)
-                (easysession--message "Session saved as: %s" session-name))))
+              (when (called-interactively-p 'any)
+                (if (string= session-name easysession--current-session-name)
+                    (easysession--message "Session saved: %s" session-name)
+                  (easysession--message "Session saved as: %s" session-name))))
 
-          (run-hooks 'easysession-after-save-hook)))
-    (setq easysession-save-in-progress nil)))
+            (run-hooks 'easysession-after-save-hook)))
+      (setq easysession-save-in-progress nil))))
 
 (defalias 'easysession-save-as 'easysession-save)
 (make-obsolete 'easysession-save-as 'easysession-save "1.2.0")
