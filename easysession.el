@@ -550,12 +550,15 @@ input, such as pressing a key."
   :type 'boolean
   :group 'easysession)
 
+(defcustom easysession-debug nil
+  "Enable displaying debug messages."
+  :type 'boolean
+  :group 'easysession)
+
 ;;; Internal variables
 
 (defvar easysession--auto-saving nil
   "Internal flag bound to t while an auto-save is in progress.")
-
-(defvar easysession-debug nil)
 
 ;; Overrides `frameset-filter-alist' while preserving its keys,
 ;; but replaces their values with the ones specified in the following alist:
@@ -887,6 +890,19 @@ of their visibility.")
 
 ;;; Internal functions
 
+(defmacro easysession--message (&rest args)
+  "Display a message with '[easysession]' prepended.
+The message is formatted with the provided arguments ARGS."
+  (declare (indent 0) (debug t))
+  `(unless easysession-quiet
+     (message (concat "[easysession] " ,(car args)) ,@(cdr args))))
+
+(defmacro easysession--debug-message (&rest args)
+  "Display a debug message with the same ARGS arguments as `message'."
+  (declare (indent 0) (debug t))
+  `(when easysession-debug
+     (easysession--message ,(car args) ,@(cdr args))))
+
 (defmacro easysession--with-increased-gc (&rest body)
   "Evaluate BODY with temporarily increased garbage collection limits."
   (declare (indent 0) (debug t))
@@ -911,12 +927,6 @@ The _CURRENT, _FILTERED, and _SAVING arguments are required by the
          (and explicit (cdr explicit)
               ;; Return t
               t))))
-
-(defun easysession--message (&rest args)
-  "Display a message with '[easysession]' prepended.
-The message is formatted with the provided arguments ARGS."
-  (unless easysession-quiet
-    (apply #'message (concat "[easysession] " (car args)) (cdr args))))
 
 (defun easysession--warning (&rest args)
   "Display a warning message with '[easysession] Warning: ' prepended.
@@ -1231,7 +1241,6 @@ is loaded, a session name is defined, and at least one frame exists.
 
 The function always returns non-nil so that it does not inhibit Emacs
 termination when used from `kill-emacs-query-functions'."
-  ;; Auto save when there is at least one frame and a session has been loaded
   (condition-case err
       (when (and easysession--current-session-name
                  easysession--session-loaded
@@ -1239,6 +1248,7 @@ termination when used from `kill-emacs-query-functions'."
                      (funcall easysession-save-mode-predicate))
                  (> (length (easysession--frame-list)) 0))
         (let ((easysession--auto-saving t))
+          (easysession--debug-message "Run auto-save...")
           (easysession-save)))
     (error
      (easysession--warning "Auto-save failed: %s"
@@ -2253,9 +2263,9 @@ SESSION-NAMES is a string or a list of session names."
 
     (when (called-interactively-p 'any)
       (easysession--message
-       "Deleted session%s: %s"
-       (if (> (length session-names) 1) "s" "")
-       (string-join session-names ", ")))))
+        "Deleted session%s: %s"
+        (if (> (length session-names) 1) "s" "")
+        (string-join session-names ", ")))))
 
 (defun easysession--ensure-font-lock ()
   "Make sure the buffer has been fontified."
