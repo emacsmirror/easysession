@@ -2149,7 +2149,7 @@ The returned list contains live buffers only."
       (delete-other-windows)
 
       ;; Switch to the scratch buffer
-      (switch-to-buffer (easysession--get-scratch-buffer-create) nil t))
+      (set-window-buffer nil (easysession--get-scratch-buffer-create)))
 
     ;; Kill all buffers
     (easysession-kill-all-buffers))
