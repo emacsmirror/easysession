@@ -2016,6 +2016,7 @@ is later initialized by the Emacs daemon, EasySession restores the state as if
 the process had been freshly started."
   (interactive)
   (when (yes-or-no-p "[easysession] Save session and close all frames? ")
+    (message nil)
     (easysession--with-increased-gc
       (save-some-buffers)
       (easysession-unload)
