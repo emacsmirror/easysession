@@ -2427,11 +2427,10 @@ loads the current session if set, or defaults to the \"main\" session."
                         ;; visual flickering of windows splitting and resizing.
                         ;; It requires no user input, making it safe to freeze
                         ;; the screen.
-                        (let ((inhibit-redisplay t))
-                          (easysession--load-frameset
-                           session-data
-                           (bound-and-true-p
-                            easysession-frameset-restore-geometry)))
+                        (easysession--load-frameset
+                         session-data
+                         (bound-and-true-p
+                          easysession-frameset-restore-geometry))
 
                         (when (called-interactively-p 'any)
                           (easysession--message "Session loaded: %s"

@@ -12,7 +12,7 @@
 
 * Fix an issue where narrowing was not correctly restored. The `easysession--restore-buffer-state` function now unconditionally clears any existing narrowing before applying saved boundaries. This ensures that buffers remaining open across session switches correctly reflect the saved state, even if the narrowing has changed or should be removed.
 
-* `easysession-reset`, `easysession-save-session-and-close-frames`, and `easysession-load`: Set `inhibit-redisplay` to `t` to prevent visual flickering caused by window splitting and resizing. Modifying the frameset and windows requires no user input, making it safe to freeze the display.
+* `easysession-reset`, `easysession-save-session-and-close-frames`: Set `inhibit-redisplay` to `t` to prevent visual flickering caused by window splitting and resizing. Modifying the frameset and windows requires no user input, making it safe to freeze the display.
 
 * Optimize session I/O with temporary GC threshold increase.
 
