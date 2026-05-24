@@ -18,6 +18,10 @@
 
 * `easysession-load`: Add `easysession-enable-local-variables` to control how file-local variables are evaluated when a session is restored. By default, it applies known-safe variables and silently ignores unsafe ones. This prevents Emacs from halting automation loops or background daemon initialization with unexpected interactive validation prompts when reopening your files.
 
+* `easysession-load`: Suppress interactive prompts for version-controlled symlinks during session restoration. This ensures that background session loading does not hang while waiting for user input to follow or visit link targets.
+
+* `easysession-load`: Suppress the large file warning threshold when restoring buffers. Since the user already chose to visit the file in the saved session, this bypasses the prompt to ensure a non-blocking background load.
+
 ## 1.2.1
 
 * Update the auto-save timer dynamically when `easysession-save-interval` changes by centralizing the timer logic into `easysession--update-timer`. This ensures the timer is correctly cancelled and restarted based on the current mode state. A `:set` function was added to `easysession-save-interval` so that modifying the variable immediately updates the running timer without requiring a restart of the mode.
