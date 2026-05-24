@@ -22,6 +22,8 @@
 
 * `easysession-load`: Suppress the large file warning threshold when restoring buffers. Since the user already chose to visit the file in the saved session, this bypasses the prompt to ensure a non-blocking background load.
 
+* `easysession-load`: Add `easysession-suppress-same-file-warnings` to prevent interactive prompts when a session attempts to load multiple files or symlinks that resolve to the exact same disk target.
+
 ## 1.2.1
 
 * Update the auto-save timer dynamically when `easysession-save-interval` changes by centralizing the timer logic into `easysession--update-timer`. This ensures the timer is correctly cancelled and restarted based on the current mode state. A `:set` function was added to `easysession-save-interval` so that modifying the variable immediately updates the running timer without requiring a restart of the mode.

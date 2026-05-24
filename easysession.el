@@ -578,6 +578,18 @@ unsafe local variables."
      :all))
   :group 'easysession)
 
+(defcustom easysession-suppress-same-file-warnings t
+  "Control warnings when opening files that resolve to the same target.
+This variable is temporarily bound to `find-file-suppress-same-file-warnings'
+when EasySession restores file-visiting buffers.
+The default is t to silently keep both buffers and prevent Emacs from halting
+the background load with an interactive prompt."
+  :type '(choice (const :tag "Silently keep both buffers"
+                        t)
+                 (const :tag "NOT RECOMMENDED. Prompt the user to keep both"
+                        nil))
+  :group 'easysession)
+
 ;;; Internal variables
 
 (defvar easysession--auto-saving nil
@@ -1663,6 +1675,12 @@ accordingly, ensuring backward compatibility with legacy session files."
                                     ;; bypass this warning and restore it
                                     ;; silently.
                                     (large-file-warning-threshold nil)
+                                    ;; Suppress the interactive "Keep both?"
+                                    ;; prompt when restoring files and symlinks
+                                    ;; that resolve to the exact same target on
+                                    ;; disk.
+                                    (find-file-suppress-same-file-warnings
+                                     easysession-suppress-same-file-warnings)
                                     ;; Apply all known-safe local variables and
                                     ;; silently ignore any unsafe ones without
                                     ;; triggering an interactive prompt.
