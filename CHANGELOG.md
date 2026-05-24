@@ -24,6 +24,8 @@
 
 * `easysession-load`: Add `easysession-suppress-same-file-warnings` to prevent interactive prompts when a session attempts to load multiple files or symlinks that resolve to the exact same disk target.
 
+- `easysession-load`: Optimize session loading performance by calculating the `find-file-hook` exclusions once per session rather than recalculating them for every individual file restored.
+
 ## 1.2.1
 
 * Update the auto-save timer dynamically when `easysession-save-interval` changes by centralizing the timer logic into `easysession--update-timer`. This ensures the timer is correctly cancelled and restarted based on the current mode state. A `:set` function was added to `easysession-save-interval` so that modifying the variable immediately updates the running timer without requiring a restart of the mode.

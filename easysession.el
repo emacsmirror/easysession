@@ -1646,47 +1646,7 @@ accordingly, ensuring backward compatibility with legacy session files."
           (if (buffer-live-p original-buffer)
               (setq buffer (or (buffer-base-buffer original-buffer)
                                original-buffer))
-            (let ((new-buffer (let ((find-file-hook
-                                     (seq-difference
-                                      find-file-hook
-                                      easysession-exclude-from-find-file-hook))
-                                    (inhibit-message t)
-                                    ;; This prevents `auto-insert-mode' from
-                                    ;; halting the background session load with
-                                    ;; interactive prompts (or silently
-                                    ;; inserting boilerplate text) if a file
-                                    ;; from the saved session was deleted or
-                                    ;; truncated between sessions. It ensures
-                                    ;; session loading remains fast,
-                                    ;; non-interactive, and does not
-                                    ;; unintentionally mark restored buffers as
-                                    ;; modified.
-                                    (auto-insert nil)
-                                    ;; Prevent interactive prompts when
-                                    ;; restoring buffers that visit symbolic
-                                    ;; links to version-controlled files.
-                                    ;; Binding this to nil ensures Emacs visits
-                                    ;; the symlink silently without blocking the
-                                    ;; background session load.
-                                    (vc-follow-symlinks nil)
-                                    ;; Suppress the "File is large, really
-                                    ;; open?" prompt. Since the file was already
-                                    ;; open in the saved session, it is safe to
-                                    ;; bypass this warning and restore it
-                                    ;; silently.
-                                    (large-file-warning-threshold nil)
-                                    ;; Suppress the interactive "Keep both?"
-                                    ;; prompt when restoring files and symlinks
-                                    ;; that resolve to the exact same target on
-                                    ;; disk.
-                                    (find-file-suppress-same-file-warnings
-                                     easysession-suppress-same-file-warnings)
-                                    ;; Apply all known-safe local variables and
-                                    ;; silently ignore any unsafe ones without
-                                    ;; triggering an interactive prompt.
-                                    (enable-local-variables
-                                     easysession-enable-local-variables))
-                                (ignore auto-insert)  ; Silence warning
+            (let ((new-buffer (let ((inhibit-message t))
                                 (condition-case err
                                     (find-file-noselect buffer-path t)
                                   (error
@@ -2390,7 +2350,48 @@ loads the current session if set, or defaults to the \"main\" session."
                   (let ((file-name (easysession-get-session-file-path
                                     session-name)))
                     (when (file-exists-p file-name)
-                      file-name))))
+                      file-name)))
+                 (find-file-hook
+                  (seq-difference
+                   find-file-hook
+                   easysession-exclude-from-find-file-hook))
+                 ;; This prevents `auto-insert-mode' from
+                 ;; halting the background session load with
+                 ;; interactive prompts (or silently
+                 ;; inserting boilerplate text) if a file
+                 ;; from the saved session was deleted or
+                 ;; truncated between sessions. It ensures
+                 ;; session loading remains fast,
+                 ;; non-interactive, and does not
+                 ;; unintentionally mark restored buffers as
+                 ;; modified.
+                 (auto-insert nil)
+                 ;; Prevent interactive prompts when
+                 ;; restoring buffers that visit symbolic
+                 ;; links to version-controlled files.
+                 ;; Binding this to nil ensures Emacs visits
+                 ;; the symlink silently without blocking the
+                 ;; background session load.
+                 (vc-follow-symlinks nil)
+                 ;; Suppress the "File is large, really
+                 ;; open?" prompt. Since the file was already
+                 ;; open in the saved session, it is safe to
+                 ;; bypass this warning and restore it
+                 ;; silently.
+                 (large-file-warning-threshold nil)
+                 ;; Suppress the interactive "Keep both?"
+                 ;; prompt when restoring files and symlinks
+                 ;; that resolve to the exact same target on
+                 ;; disk.
+                 (find-file-suppress-same-file-warnings
+                  easysession-suppress-same-file-warnings)
+                 ;; Apply all known-safe local variables and
+                 ;; silently ignore any unsafe ones without
+                 ;; triggering an interactive prompt.
+                 (enable-local-variables
+                  easysession-enable-local-variables))
+            (ignore auto-insert)  ; Silence warning
+
             ;; Pre-validate handlers before proceeding
             (dolist (handler load-handlers)
               (when (and handler
@@ -2808,6 +2809,8 @@ accordingly."
                  #'easysession--persist-session-on-frame-delete-maybe)
     (remove-hook 'kill-emacs-hook #'easysession--auto-save)
     (remove-hook 'kill-emacs-query-functions #'easysession--auto-save)))
+
+;;; Provide
 
 (provide 'easysession)
 ;;; easysession.el ends here
