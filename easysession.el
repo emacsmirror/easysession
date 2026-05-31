@@ -832,7 +832,7 @@ from `easysession--overwrite-frameset-filter-alist`."
      ;; Decoration effect the total frame height
      undecorated
 
-     ;; border-width controls the thickness of the frame’s outer border (on all
+     ;; border-width controls the thickness of the frame's outer border (on all
      ;; sides) in pixels.
      border-width
 
@@ -840,7 +840,7 @@ from `easysession--overwrite-frameset-filter-alist`."
      ;; frame edge.
      internal-border-width
 
-     ;; The width in pixels of the frame’s internal border (see Frame Geometry)
+     ;; The width in pixels of the frame's internal border (see Frame Geometry)
      ;; if the given frame is a child frame (see Child Frames). If this is nil,
      ;; the value specified by the internal-border-width parameter is used
      ;; instead.
