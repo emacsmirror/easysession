@@ -4,7 +4,7 @@
 
 **Author:** [James Cherti](https://www.jamescherti.com/)
 
-## WIP
+## 1.2.2
 
 * Change all defvar options to defcustom
 
