@@ -24,7 +24,7 @@
 
 * `easysession-load`: Add `easysession-suppress-same-file-warnings` to prevent interactive prompts when a session attempts to load multiple files or symlinks that resolve to the exact same disk target.
 
-- `easysession-load`: Optimize session loading performance by calculating the `find-file-hook` exclusions once per session rather than recalculating them for every individual file restored.
+* `easysession-load`: Optimize session loading performance by calculating the `find-file-hook` exclusions once per session rather than recalculating them for every individual file restored.
 
 ## 1.2.1
 
