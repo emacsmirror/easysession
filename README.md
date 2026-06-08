@@ -33,41 +33,6 @@ If this package enhances your workflow, please show your support by **⭐ starri
 * Optional **scratch buffer persistence** via the **extensions/easysession-scratch.el** extension, preserving notes and experiments across restarts.
 * Optional **Magit state restoration** via the **extensions/easysession-magit.el** extension, keeping version control workflows intact.
 
-<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
-## Table of Contents
-
-- [easysession.el: Easily persist and restore Emacs sessions (windows, tab-bar, file buffers, scratch, Dired, narrowing, indirect buffers/clones, Magit buffers, scratch...); a robust desktop.el replacement](#easysessionel-easily-persist-and-restore-emacs-sessions-windows-tab-bar-file-buffers-scratch-dired-narrowing-indirect-buffersclones-magit-buffers-scratch-a-robust-desktopel-replacement)
-  - [Installation](#installation)
-  - [Extensions](#extensions)
-    - [Extension: easysession-scratch (Persist and restore the scratch buffer)](#extension-easysession-scratch-persist-and-restore-the-scratch-buffer)
-    - [Extension: easysession-magit (Persist and restore Magit buffers)](#extension-easysession-magit-persist-and-restore-magit-buffers)
-  - [Usage](#usage)
-    - [Testimonials from users](#testimonials-from-users)
-  - [Customization](#customization)
-    - [How to only persist and restore visible buffers](#how-to-only-persist-and-restore-visible-buffers)
-    - [How to persist and restore global variables?](#how-to-persist-and-restore-global-variables)
-    - [How to make the current session name appear in the mode-line?](#how-to-make-the-current-session-name-appear-in-the-mode-line)
-    - [How to create an empty session setup](#how-to-create-an-empty-session-setup)
-    - [How to prevent EasySession from saving when switching sessions](#how-to-prevent-easysession-from-saving-when-switching-sessions)
-    - [How to configure easysession-save-mode to automatically save only the "main" session and let me manually save others?](#how-to-configure-easysession-save-mode-to-automatically-save-only-the-main-session-and-let-me-manually-save-others)
-    - [Passing the session name to Emacs via an environment variable](#passing-the-session-name-to-emacs-via-an-environment-variable)
-    - [How to make EasySession kill all buffers, frames, and windows before loading a session?](#how-to-make-easysession-kill-all-buffers-frames-and-windows-before-loading-a-session)
-    - [How to create custom load and save handlers for non-file-visiting buffers](#how-to-create-custom-load-and-save-handlers-for-non-file-visiting-buffers)
-    - [How to start afresh after loading too many buffers](#how-to-start-afresh-after-loading-too-many-buffers)
-    - [How to kill all buffers when changing a session?](#how-to-kill-all-buffers-when-changing-a-session)
-    - [How to save the session and close frames without quitting `emacs --daemon`](#how-to-save-the-session-and-close-frames-without-quitting-emacs---daemon)
-    - [How to persist and restore text scale?](#how-to-persist-and-restore-text-scale)
-    - [How does the author use easysession?](#how-does-the-author-use-easysession)
-    - [How to reduce the number of buffers in my session, regularly](#how-to-reduce-the-number-of-buffers-in-my-session-regularly)
-    - [What does 'EasySession supports restoring indirect buffers' mean?](#what-does-easysession-supports-restoring-indirect-buffers-mean)
-    - [What does EasySession offer that desktop.el doesn't?](#what-does-easysession-offer-that-desktopel-doesnt)
-    - [Why not just improve and submit patches to desktop.el?](#why-not-just-improve-and-submit-patches-to-desktopel)
-    - [Why not use one of the other third-party session packages?](#why-not-use-one-of-the-other-third-party-session-packages)
-  - [License](#license)
-  - [Links](#links)
-
-<!-- markdown-toc end -->
-
 ## Installation
 
 To install **easysession** from MELPA:
