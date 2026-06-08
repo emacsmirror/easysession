@@ -160,6 +160,7 @@ It is recommended to use the following functions:
 - [ghoseb on GitHub](https://github.com/jamescherti/easysession.el/issues/21): "Thanks a lot for your amazing packages! Easysession works great 🎉"
 - [hapst3r on GitHub](https://github.com/jamescherti/easysession.el/issues/58): "...thank you so much for this package. I am in the process of setting it up and I can foresee a huge productivity boost once I will have it setup."
 - Mijail Guillemard (Email): "Thanks a lot for easysession.el, it is definitely more useful than other desktop*.el packages. The workflow I now have with Emacs has drastically improved with easysession."
+- [JamesBrickley](https://www.reddit.com/r/emacs/comments/1tzfbsq/comment/oqds13q/): "I'm really enjoying James Cherti's Minimal-Emacs.d, Compile-Angle, Easy-Session, and Buffer-Terminator packages."
 - [dewyke](https://www.reddit.com/r/emacs/comments/1tvwmhe/comment/opv2ezr/): "Thank you for this package, it has made such a difference to me! I have to shut my laptop down at the end of each day and having almost everything just restore automagically when I boot it again is fantastic!"
 - [tdavey on Reddit](https://www.reddit.com/r/emacs/comments/1r47s44/comment/o639qyo/):
   ```
