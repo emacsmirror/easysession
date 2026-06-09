@@ -21,6 +21,8 @@
 
 - Rewrote `easysession--refresh-tabs-all-frames` to silently update auto-generated tab names across all frames. This optimization completely eliminates the slow, intrusive visual tab cycling of `tab-bar-select-tab`, which previously triggered expensive window hooks, layout updates, and display redraws. The engine now uses an isolated background sandbox to peek into inactive window configurations (`wc`) invisibly, resolving accurate names via `tab-bar-tab-name-function` without mutating the live workspace state. Explicit, user-defined tab titles are strictly respected by skipping updates on tabs with a non-nil `explicit-name` property, and frame structures are only updated via `set-frame-parameter` when an actual text disparity is detected.
 
+- Fix `easysession-visible-buffer-list` to automatically include the base buffer when an indirect buffer is visible.
+
 ## 1.2.2
 
 - Change all defvar options to defcustom

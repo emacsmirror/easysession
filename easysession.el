@@ -1707,23 +1707,6 @@ This provides a fast, invisible alternative to cycling tabs."
       ;; Return buffers
       (delete-dups bufs))))
 
-(defun easysession--buffer-is-visible (buffer)
-  "Return non-nil if BUFFER is currently visible in the Emacs session.
-
-A buffer is considered visible if it is:
-
-- Displayed in any visible window (`get-buffer-window').
-- Associated with a visible tab in `tab-bar-mode' (if enabled).
-
-Returns nil if the buffer is not displayed in a window or tab."
-  (or
-   ;; Windows
-   (get-buffer-window buffer 0)
-   ;; Tab-bar windows
-   (and (bound-and-true-p tab-bar-mode)
-        (fboundp 'tab-bar-get-buffer-tab)
-        (tab-bar-get-buffer-tab buffer t nil))))
-
 ;;; Internal functions: handlers
 
 (defun easysession--restore-buffer-state (buffer buffer-info)
@@ -2245,36 +2228,37 @@ The returned list contains live buffers only."
                                  (bound-and-true-p tab-bar-mode))
                         (easysession--get-all-tabs-buffers))))
     (dolist (buffer (buffer-list))
-      (when (and (buffer-live-p buffer)
-                 (or
-                  ;; Exceptions
-                  (member (buffer-name buffer)
-                          easysession-visible-buffer-list-include-names)
+      (let ((base-buffer (buffer-base-buffer buffer)))
+        (when (and (buffer-live-p buffer)
+                   (or
+                    ;; Exceptions
+                    (member (buffer-name buffer)
+                            easysession-visible-buffer-list-include-names)
 
-                  ;; Buffers and indirect buffers
-                  (or
-                   (get-buffer-window buffer 0)
+                    ;; Buffers and indirect buffers
+                    (or
+                     (get-buffer-window buffer 0)
 
-                   (let ((base-buffer (buffer-base-buffer buffer)))
-                     (or
-                      ;; Indirect buffers
-                      (and (buffer-live-p base-buffer)
-                           (get-buffer-window base-buffer 0))
+                     ;; Indirect buffers
+                     (and (buffer-live-p base-buffer)
+                          (get-buffer-window base-buffer 0))
 
-                      ;; `tab-bar'
-                      (if fast-tabs-supported
-                          (when tab-buffers
-                            (or (memq buffer tab-buffers)
-                                (when (buffer-live-p base-buffer)
-                                  (memq base-buffer tab-buffers))))
-                        ;; Fallback for older Emacs builds
-                        (when (and (bound-and-true-p tab-bar-mode)
-                                   (fboundp 'tab-bar-get-buffer-tab))
-                          (or (tab-bar-get-buffer-tab buffer t nil)
-                              (and (buffer-live-p base-buffer)
-                                   (tab-bar-get-buffer-tab base-buffer t nil))))))))))
-        (push buffer visible-buffers)))
-    visible-buffers))
+                     ;; `tab-bar'
+                     (if fast-tabs-supported
+                         (when tab-buffers
+                           (or (memq buffer tab-buffers)
+                               (when (buffer-live-p base-buffer)
+                                 (memq base-buffer tab-buffers))))
+                       ;; Fallback for older Emacs builds
+                       (when (and (bound-and-true-p tab-bar-mode)
+                                  (fboundp 'tab-bar-get-buffer-tab))
+                         (or (tab-bar-get-buffer-tab buffer t nil)
+                             (and (buffer-live-p base-buffer)
+                                  (tab-bar-get-buffer-tab base-buffer t nil))))))))
+          (push buffer visible-buffers)
+          (when (buffer-live-p base-buffer)
+            (push base-buffer visible-buffers)))))
+    (delete-dups visible-buffers)))
 
 ;;;###autoload
 (defun easysession-kill-all-buffers ()
