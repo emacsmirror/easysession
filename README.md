@@ -115,26 +115,11 @@ It is recommended to use the following functions:
 
 ## Customization
 
-### How to only persist and restore visible buffers
-
-By default, all file-visiting buffers, Dired buffers, and indirect buffers are persisted and restored as part of a session.
-
-To restrict session persistence and restoration to buffers that are actually visible, configure `easysession-buffer-list-function` to use the `easysession-visible-buffer-list` function:
-
-```emacs-lisp
-;; Restrict session persistence and restoration to buffers that are visible
-;; A buffer is included if it satisfies any of the following:
-;; - It is currently displayed in a visible window.
-;; - It is associated with a visible tab in tab-bar-mode, if enabled.
-(setq easysession-buffer-list-function 'easysession-visible-buffer-list)
-```
-
-With this configuration, only buffers that are currently visible in a window or associated with a visible tab-bar tab are included in the session state.
-
 ### How to persist and restore global variables?
 
 To persist and restore global variables in Emacs, you can use the built-in `savehist` Emacs package. This package is designed to save and restore minibuffer histories, but it can also be configured to save other global variables:
-``` emacs-lisp
+
+```emacs-lisp
 (use-package savehist
   :ensure nil
   :hook
@@ -164,7 +149,7 @@ You can display the current session name in the mode line by setting the followi
 
 To set up a minimal environment when easysession creates a new session, you can define a function that closes all other tabs, deletes all other windows, and switches to the scratch buffer. The following Emacs Lisp code demonstrates how to achieve this:
 
-``` emacs-lisp
+```emacs-lisp
 (add-hook 'easysession-new-session-hook #'easysession-reset)
 ```
 
@@ -326,6 +311,90 @@ EasySession operates effectively when Emacs runs in daemon mode. The `easysessio
 The `easysession-save-sesssion-and-close-frames` function persists modified buffers, saves the EasySession state, and deletes all active frames. (The Emacs daemon's internal terminal frame is preserved to ensure the daemon remains resident.)
 
 From the perspective of EasySession, this is functionally equivalent to an application shutdown: the session is fully saved and unloaded. When a new frame is later initialized by the Emacs daemon, EasySession restores the state as if the process had been freshly started.
+
+### How to only persist and restore visible buffers
+
+By default, all file-visiting buffers, Dired buffers, and indirect buffers are persisted and restored as part of a session.
+
+To restrict session persistence and restoration to buffers that are actually visible, configure `easysession-buffer-list-function` to use the `easysession-visible-buffer-list` function:
+
+```emacs-lisp
+;; Restrict session persistence and restoration to buffers that are visible
+;; A buffer is included if it satisfies any of the following:
+;; - It is currently displayed in a visible window.
+;; - It is associated with a visible tab in tab-bar-mode, if enabled.
+(setq easysession-buffer-list-function 'easysession-visible-buffer-list)
+```
+
+If you want specific buffers to *always* be included regardless of their visibility status, add their names to the `easysession-visible-buffer-list-include-names` variable:
+
+```elisp
+(add-to-list 'easysession-visible-buffer-list-include-names "my-important-buffer")
+```
+
+### How to edit session files directly
+
+To manually inspect or modify a saved session, you can use `M-x easysession-edit`. By default, this opens the session file in `emacs-lisp-mode`.
+
+If you prefer to open the session file in read-only mode to prevent accidental modifications, configure the following:
+
+```elisp
+(setq easysession-edit-read-only t)
+```
+
+### How to format the saved session file for readability
+
+Session data is written in a compact format by default to save disk space. To make the session file formatted and easier for humans to read, enable pretty printing:
+
+```elisp
+(setq easysession-save-pretty-print t)
+```
+
+### How to disable the new session confirmation prompt
+
+By default, EasySession prompts for confirmation before creating a new session when you type a name that doesn't exist yet. To disable this and create new sessions instantly, set:
+
+```elisp
+(setq easysession-confirm-new-session nil)
+```
+
+### How to conditionally load sessions at startup
+
+You can restrict automatic session restoration to specific environments (such as graphical frames only) by assigning a predicate function. Note that this must be set *before* calling `(easysession-setup)`.
+
+```elisp
+(setq easysession-setup-load-predicate (lambda () (display-graphic-p)))
+```
+
+### How to ensure restored buffers are properly fontified
+
+Sometimes, restored buffers may remain unfontified (missing syntax highlighting) until you provide input, especially if `redisplay-skip-fontification-on-input` is active. To force immediate fontification upon loading, enable:
+
+```elisp
+(setq easysession-fontify t)
+```
+
+### How to handle local variables and same-file warnings silently
+
+EasySession is configured by default to silently restore file buffers without pausing the background process for interactive prompts. You can modify this behavior if you prefer to be prompted:
+
+```elisp
+;; :safe evaluates safe variables and ignores unsafe ones (default)
+;; t prompts the user if any are unsafe
+(setq easysession-enable-local-variables :safe)
+
+;; t silently keeps both buffers if they resolve to the same target (default)
+;; nil prompts the user
+(setq easysession-suppress-same-file-warnings t)
+```
+
+### How to suppress messages
+
+To keep the echo area completely clean and suppress standard EasySession messages (like "Session Saved"), set:
+
+```elisp
+(setq easysession-quiet t)
+```
 
 ### How to persist and restore text scale?
 
