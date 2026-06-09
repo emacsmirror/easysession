@@ -15,6 +15,10 @@
   - Add UI and visual theme exclusions (`no-special-glyphs`, `alpha`, `alpha-background`, `borders-respect-alpha-background`, `icon-name`) to prevent session files from overriding current environment settings.
   - Filter `last-focus-update` to avoid restoring obsolete internal state.
 
+- Fixed an issue where `tab-bar-mode` cached stale buffer names by parsing the native window configuration directly.
+
+- Resolved a performance bottleneck in `easysession-visible-buffer-list` by extracting background tab buffers upfront instead of querying them per buffer.
+
 ## 1.2.2
 
 - Change all defvar options to defcustom

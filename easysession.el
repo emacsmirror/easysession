@@ -1398,23 +1398,6 @@ The session name is displayed only when a session is actively loaded."
                 (setq-local trusted-content :all))))
           scratch))))
 
-(defun easysession--buffer-is-visible (buffer)
-  "Return non-nil if BUFFER is currently visible in the Emacs session.
-
-A buffer is considered visible if it is:
-
-- Displayed in any visible window (`get-buffer-window').
-- Associated with a visible tab in `tab-bar-mode' (if enabled).
-
-Returns nil if the buffer is not displayed in a window or tab."
-  (or
-   ;; Windows
-   (get-buffer-window buffer 0)
-   ;; Tab-bar windows
-   (and (bound-and-true-p tab-bar-mode)
-        (fboundp 'tab-bar-get-buffer-tab)
-        (tab-bar-get-buffer-tab buffer t nil))))
-
 (defun easysession--cl-list* (&rest args)
   "Return a list from ARGS using `cl-list*', or nil if ARGS is empty.
 This is a safe wrapper around `cl-list*' that avoids errors when called without
@@ -1649,6 +1632,104 @@ exact state of your open files."
                             (tab-bar-select-tab (1+ index))))
                       (when original-index
                         (tab-bar-select-tab (1+ original-index))))))))))))))
+
+(defun easysession--get-all-tabs-buffers ()
+  "Iterate through tabs and use the native `wc' object to collect buffers."
+  (when (and (bound-and-true-p tab-bar-mode)
+             (boundp 'tab-bar-tabs-function)
+             ;; tab-bar was implemented in Emacs 27, where
+             ;; `window-state-buffers' was also available
+             (fboundp 'window-state-buffers))
+    ;; The slowest part of window management in Emacs is not the internal data
+    ;; shuffling, but the Redisplay Engine (the part that actually draws pixels
+    ;; on your screen). Binding `inhibit-redisplay' to t tells Emacs: "Do all
+    ;; this logic in the background, but don't bother updating the monitor."
+    ;; This makes `set-window-configuration' nearly instantaneous.
+    (let ((inhibit-redisplay t)
+          bufs)
+      ;; Use frame-list to ensure minimized/iconified frames are included
+      (dolist (frame (frame-list))
+        (with-selected-frame frame
+          (dolist (tab (funcall tab-bar-tabs-function frame))
+            (if (eq (car tab) 'current-tab)
+                ;; Current tab buffers are in the live windows
+                (dolist (win (window-list frame))
+                  (push (window-buffer win) bufs))
+              ;; Inactive tab: check for the native window-configuration ('wc')
+              (let ((wc (alist-get 'wc tab)))
+                (if (and (window-configuration-p wc)
+                         (eq (window-configuration-frame wc) frame))
+                    (save-window-excursion
+                      ;; Temporarily apply the configuration to read object
+                      ;; references. We use an ironclad sandbox to prevent
+                      ;; visual glitches and preserve the user's most recently
+                      ;; used buffer order.
+                      ;;
+                      ;; By setting all the *-change-functions and *-hook
+                      ;; variables to nil, you prevent other heavy packages
+                      ;; (like LSP-mode, Magit, or line-numbering modes) from
+                      ;; running their own expensive logic every time you peek
+                      ;; at a tab. Your function runs in a "vacuum," which is
+                      ;; the key to its speed.
+                      (let ((buffer-list-update-hook nil)
+                            (window-buffer-change-functions nil)
+                            (window-configuration-change-hook nil)
+                            (window-state-change-functions nil)
+                            (window-size-change-functions nil)
+                            (window-selection-change-functions nil)
+                            (window-state-change-hook nil))
+                        (ignore buffer-list-update-hook)
+                        (ignore window-buffer-change-functions)
+                        (ignore window-configuration-change-hook)
+                        (ignore window-state-change-functions)
+                        (ignore window-size-change-functions)
+                        (ignore window-selection-change-functions)
+                        (ignore window-state-change-hook)
+
+                        ;; A `window-configuration' object is essentially a
+                        ;; C-level snapshot of pointers to buffer objects. When
+                        ;; you call `set-window-configuration', Emacs isn't
+                        ;; "reloading" files; it is just re-pointing internal
+                        ;; memory addresses. It is a very cheap operation at the
+                        ;; machine level.
+                        ;;
+                        ;; Silence: `set-window-configuration' called with 3
+                        ;; arguments, but accepts only 1
+                        (with-no-warnings
+                          (if (version< emacs-version "28.1")
+                              (set-window-configuration wc)
+                            (set-window-configuration wc nil t)))
+
+                        (setq bufs (append (mapcar #'window-buffer
+                                                   (window-list frame))
+                                           bufs))))
+                  ;; Fallback to 'ws' if 'wc' is invalid or missing (e.g., if
+                  ;; you restore a session from desktop.el)
+                  (let ((state (alist-get 'ws tab)))
+                    (when state
+                      (dolist (buf (window-state-buffers state))
+                        (let ((resolved (get-buffer buf)))
+                          (when resolved
+                            (push resolved bufs))))))))))))
+      ;; Return buffers
+      (delete-dups bufs))))
+
+(defun easysession--buffer-is-visible (buffer)
+  "Return non-nil if BUFFER is currently visible in the Emacs session.
+
+A buffer is considered visible if it is:
+
+- Displayed in any visible window (`get-buffer-window').
+- Associated with a visible tab in `tab-bar-mode' (if enabled).
+
+Returns nil if the buffer is not displayed in a window or tab."
+  (or
+   ;; Windows
+   (get-buffer-window buffer 0)
+   ;; Tab-bar windows
+   (and (bound-and-true-p tab-bar-mode)
+        (fboundp 'tab-bar-get-buffer-tab)
+        (tab-bar-get-buffer-tab buffer t nil))))
 
 ;;; Internal functions: handlers
 
@@ -2165,7 +2246,11 @@ A buffer is included if it satisfies any of the following:
 - It is associated with a visible tab in `tab-bar-mode', if enabled.
 
 The returned list contains live buffers only."
-  (let ((visible-buffers '()))
+  (let* ((fast-tabs-supported (fboundp 'window-state-buffers))
+         (visible-buffers '())
+         (tab-buffers (when (and fast-tabs-supported
+                                 (bound-and-true-p tab-bar-mode))
+                        (easysession--get-all-tabs-buffers))))
     (dolist (buffer (buffer-list))
       (when (and (buffer-live-p buffer)
                  (or
@@ -2174,23 +2259,27 @@ The returned list contains live buffers only."
                           easysession-visible-buffer-list-include-names)
 
                   ;; Buffers and indirect buffers
-                  (let ((base-buffer (buffer-base-buffer buffer)))
-                    (cond
-                     ;; Indirect buffers
-                     (base-buffer
-                      (and
-                       (buffer-live-p base-buffer)
+                  (or
+                   (get-buffer-window buffer 0)
 
-                       (or
-                        ;; Is the indirect buffer visible?
-                        (easysession--buffer-is-visible buffer)
+                   (let ((base-buffer (buffer-base-buffer buffer)))
+                     (or
+                      ;; Indirect buffers
+                      (and (buffer-live-p base-buffer)
+                           (get-buffer-window base-buffer 0))
 
-                        ;; Is the base buffer visible?
-                        (easysession--buffer-is-visible base-buffer))))
-
-                     ;; Normal buffers
-                     (t
-                      (easysession--buffer-is-visible buffer))))))
+                      ;; `tab-bar'
+                      (if fast-tabs-supported
+                          (when tab-buffers
+                            (or (memq buffer tab-buffers)
+                                (when (buffer-live-p base-buffer)
+                                  (memq base-buffer tab-buffers))))
+                        ;; Fallback for older Emacs builds
+                        (when (and (bound-and-true-p tab-bar-mode)
+                                   (fboundp 'tab-bar-get-buffer-tab))
+                          (or (tab-bar-get-buffer-tab buffer t nil)
+                              (and (buffer-live-p base-buffer)
+                                   (tab-bar-get-buffer-tab base-buffer t nil))))))))))
         (push buffer visible-buffers)))
     visible-buffers))
 
