@@ -1566,72 +1566,65 @@ to prevent multiple loads during the same daemon session."
    (frame-list)))
 
 (defun easysession--refresh-tabs-all-frames ()
-  "Cycle through all tabs on all frames to force a state and name refresh.
+  "Silently update auto-generated tab names across all frames.
 
-If the refresh is triggered by an auto-save, it executes even if the
-minibuffer is currently active.
+Instead of forcing Emacs to physically switch to each tab (which triggers
+costly hooks and redraws), this function temporarily restores the inactive
+window configurations inside an ironclad sandbox. It computes the correct
+tab name using `tab-bar-tab-name-function' and updates the internal tab
+data structure.
 
-When Emacs buffers are renamed automatically by packages like uniquify,
-background tabs in `tab-bar-mode' often retain the old buffer names because they
-store window configurations as static data.
-
-This creates a confusing interface where the visible tab titles fail to match
-the actual active buffers. Cycling through all tabs across every frame forces
-Emacs to deserialize the window states and update its internal tracking
-information. Consequently, the workspace always displays accurate tab names,
-which prevents navigation errors and ensures the visual layout reflects the
-exact state of your open files."
-  (when (and (or easysession--auto-saving (not (active-minibuffer-window)))
-             (fboundp 'tab-bar--current-tab-index)
-             (fboundp 'tab-bar-select-tab)
+This provides a fast, invisible alternative to cycling tabs."
+  (when (and (bound-and-true-p tab-bar-mode)
              (boundp 'tab-bar-tabs-function)
-             (bound-and-true-p tab-bar-mode))
-    (save-current-buffer
-      (let ((inhibit-redisplay t)
-            (inhibit-message t)
-            ;; Core window and buffer sandbox
-            (buffer-list-update-hook nil)
-            (window-buffer-change-functions nil)
-            (window-configuration-change-hook nil)
-            (window-state-change-functions nil)
-            (window-size-change-functions nil)
-            (window-selection-change-functions nil)
-            (window-state-change-hook nil)
-            (tab-bar-tab-post-select-functions nil)
-            ;; Tab-bar specific background overrides
-            (read-minibuffer-restore-windows nil)
-            (tab-bar-history-mode nil)
-            (tab-bar-select-restore-windows nil)
-            (window-restore-killed-buffer-windows nil)
-            (tab-bar-select-restore-context nil))
-        (ignore read-minibuffer-restore-windows)
-        (ignore tab-bar-history-mode)
-        (ignore tab-bar-select-restore-windows)
-        (ignore window-restore-killed-buffer-windows)
-        (ignore tab-bar-select-restore-context)
-        (ignore buffer-list-update-hook)
-        (ignore window-buffer-change-functions)
-        (ignore window-configuration-change-hook)
-        (ignore window-state-change-functions)
-        (ignore window-size-change-functions)
-        (ignore window-selection-change-functions)
-        (ignore window-state-change-hook)
-        (ignore tab-bar-tab-post-select-functions)
+             (boundp 'tab-bar-tab-name-function))
+    (let ((inhibit-redisplay t))
+      (dolist (frame (frame-list))
+        (with-selected-frame frame
+          (let ((tabs (funcall tab-bar-tabs-function frame))
+                (changed nil))
+            (dolist (tab tabs)
+              ;; Only update tabs that do NOT have a manually set name
+              ;; (If a user explicitly renamed a tab, we respect it)
+              (unless (alist-get 'explicit-name tab)
+                (let ((new-name
+                       (if (eq (car tab) 'current-tab)
+                           (funcall tab-bar-tab-name-function)
+                         (let ((wc (alist-get 'wc tab)))
+                           (when (and (window-configuration-p wc)
+                                      (eq (window-configuration-frame wc) frame))
+                             (save-window-excursion
+                               ;; Apply the ironclad sandbox
+                               (let ((buffer-list-update-hook nil)
+                                     (window-buffer-change-functions nil)
+                                     (window-configuration-change-hook nil)
+                                     (window-state-change-functions nil)
+                                     (window-size-change-functions nil)
+                                     (window-selection-change-functions nil)
+                                     (window-state-change-hook nil))
+                                 (ignore buffer-list-update-hook)
+                                 (ignore window-buffer-change-functions)
+                                 (ignore window-configuration-change-hook)
+                                 (ignore window-state-change-functions)
+                                 (ignore window-size-change-functions)
+                                 (ignore window-selection-change-functions)
+                                 (ignore window-state-change-hook)
 
-        (let ((inhibit-quit t))
-          (dolist (frame (frame-list))
-            (with-selected-frame frame
-              (save-window-excursion
-                (let* ((tabs (funcall tab-bar-tabs-function frame))
-                       (original-index (tab-bar--current-tab-index tabs frame))
-                       (tab-count (length tabs)))
-                  (when (> tab-count 1)
-                    (unwind-protect
-                        (dotimes (index tab-count)
-                          (unless (eq index original-index)
-                            (tab-bar-select-tab (1+ index))))
-                      (when original-index
-                        (tab-bar-select-tab (1+ original-index))))))))))))))
+                                 (with-no-warnings
+                                   (if (version< emacs-version "28.1")
+                                       (set-window-configuration wc)
+                                     (set-window-configuration wc nil t)))
+
+                                 ;; With the configuration loaded invisibly, get
+                                 ;; the name
+                                 (funcall tab-bar-tab-name-function))))))))
+                  (when (and new-name (not (equal new-name (alist-get 'name tab))))
+                    (setf (alist-get 'name tab) new-name)
+                    (setq changed t)))))
+            ;; If any auto-generated names changed, push the update to the frame
+            ;; parameter
+            (when changed
+              (set-frame-parameter frame 'tabs tabs))))))))
 
 (defun easysession--get-all-tabs-buffers ()
   "Iterate through tabs and use the native `wc' object to collect buffers."
