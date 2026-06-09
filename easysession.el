@@ -642,7 +642,11 @@ the background load with an interactive prompt."
     (top . :never)
     (width . :never)
 
-    ;; Window-manager mutable flags: leave commented out
+    ;; Pixel Precision (Affect the geometry, but let the user configure them)
+    (frameset--text-pixel-height . :never)
+    (frameset--text-pixel-width . :never)
+
+    ;; Window-manager mutable flags:
     ;; Uncommenting these ensures that the Window Manager (WM) decides how to
     ;; place the new frame (decorated, sticky, etc.) based on current rules,
     ;; rather than restoring old state which might confuse the WM.
@@ -651,6 +655,46 @@ the background load with an interactive prompt."
     (shaded . :never)
     (undecorated . :never)
     (override-redirect . :never)
+
+    ;; Layout & Borders (Fringes, Dividers)
+    ;; These define the "inner geometry" of the frame. If you change your font
+    ;; size or fringe settings in your config, you don't want old session data
+    ;; to force the old sizes back.
+    (border-width . :never)
+    (internal-border-width . :never)
+    (child-frame-border-width . :never) ; Geometry for child frames (popups)
+    (left-fringe . :never)
+    (right-fringe . :never)
+    (bottom-divider-width . :never)
+    (right-divider-width . :never)
+    (line-spacing . :never)
+
+    ;; Window manager hints indicating whether a frame was explicitly placed.
+    ;; Benefit: Prevents layout conflicts with tiling or dynamic window
+    ;; managers. If geometry is excluded, stripping these flags gives the
+    ;; window manager full authority to tile or place new frames according to
+    ;; default rules.
+    ;; Tradeoff: If exact frame geometry restoration is desired, missing these
+    ;; hints causes certain window managers to ignore requested dimensions and
+    ;; cascade windows instead.
+    (user-size . :never)
+    (user-position . :never)
+
+    ;; While you can generate titles dynamically, saving the title is often
+    ;; harmless. If you manually rename frames to keep track of different
+    ;; projects, you'll lose those names if you don't persist this.
+    ;;
+    ;; Argument for :never: If init.el uses frame-title-format to dynamically
+    ;; show the current buffer and file path, restoring a static string from a
+    ;; session file might temporarily override your dynamic title until the next
+    ;; refresh.
+    ;; (title . :never)
+
+    ;; This controls if a frame is "always on top" (above) or "always on bottom"
+    ;; (below). If your session relies on a specific window layout (e.g., a
+    ;; reference window always floating above code), you need this parameter to
+    ;; preserve that relationship.
+    (z-group . :never)
 
     ;; Window-manager: Ensures frames are positioned only after the window
     ;; manager maps them, helping avoid small shifts in geometry.
@@ -668,25 +712,6 @@ the background load with an interactive prompt."
     (tool-bar-position . :never)
     (tool-bar-lines . :never)
     (menu-bar-lines . :never)
-
-    ;; (no-special-glyphs . :never)
-
-    ;; Layout & Borders (Fringes, Dividers)
-    ;; These define the "inner geometry" of the frame. If you change your font
-    ;; size or fringe settings in your config, you don't want old session data
-    ;; to force the old sizes back.
-    (left-fringe . :never)
-    (right-fringe . :never)
-    (line-spacing . :never)
-    (internal-border-width . :never)
-    (child-frame-border-width . :never) ; Geometry for child frames (popups)
-    (border-width . :never)
-    (bottom-divider-width . :never)
-    (right-divider-width . :never)
-
-    ;; Pixel Precision (Affect the geometry, but let the user configure them)
-    (frameset--text-pixel-height . :never)
-    (frameset--text-pixel-width . :never)
 
     ;; Other exclusions
     (scroll-bar-background . :never)
@@ -717,7 +742,6 @@ the background load with an interactive prompt."
     ;; SSH_AUTH_SOCK) active at the time of the save.
     (environment . :never)
 
-    ;; TODO
     ;; This sets the icon displayed by the OS.
     (icon-type . :never)
 
@@ -750,22 +774,6 @@ the background load with an interactive prompt."
     ;; the text editor session.
     (screen-gamma . :never)
 
-    ;; While you can generate titles dynamically, saving the title is often
-    ;; harmless. If you manually rename frames to keep track of different
-    ;; projects, you'll lose those names if you don't persist this.
-    ;;
-    ;; Argument for :never: If init.el uses frame-title-format to dynamically
-    ;; show the current buffer and file path, restoring a static string from a
-    ;; session file might temporarily override your dynamic title until the next
-    ;; refresh.
-    ;; (title . :never)
-
-    ;; This controls if a frame is "always on top" (above) or "always on bottom"
-    ;; (below). If your session relies on a specific window layout (e.g., a
-    ;; reference window always floating above code), you need this parameter to
-    ;; preserve that relationship.
-    ;; (z-group . :never)
-
     ;; Fixes #24: Restoring a saved session does not restore all frames It was
     ;;            caused by: (visibility . :never).
     ;;
@@ -774,7 +782,59 @@ the background load with an interactive prompt."
     ;; exclude this, you might restore frames that are invisible or in a
     ;; confused state.
     ;; (visibility . :never)
-    )
+
+    ;; Controls the display of special fringe indicators, such as line
+    ;; truncation or continuation arrows.
+    ;; Benefit: Ensures the restored frame respects current global
+    ;; configurations or theme settings for fringe indicators, preventing a
+    ;; session file from forcing hidden or visible glyphs against current
+    ;; preferences.
+    ;; Tradeoff: Intentional, per-frame minimalist visual states (such as a
+    ;; distraction-free writing frame or a custom dashboard) that purposefully
+    ;; hid these indicators will be lost upon restoration.
+    (no-special-glyphs . :never)
+
+    ;; Visual theme settings: Frame transparency is typically defined by the
+    ;; active theme or environment.
+    ;; Benefit: Ensures newly restored frames adhere to current environment
+    ;; settings rather than historical ones, maintaining consistency.
+    ;; Tradeoff: Discards intentional, per-frame visual isolation. Specific
+    ;; transparency configurations set for referencing underlying windows
+    ;; will be lost upon session load.
+    (alpha . :never)
+    (alpha-background . :never)
+
+    ;; A visual theme setting dictating how borders render with transparency.
+    ;; Benefit: Prevents visual rendering artifacts. If primary alpha values
+    ;; are modified by the current theme, forcing stale border configurations
+    ;; can result in broken UI elements or invisible borders.
+    ;; Tradeoff: Custom, per-frame border rendering logic established for
+    ;; specific workspace layouts is discarded.
+    (borders-respect-alpha-background . :never)
+
+    ;; A transient internal timestamp Emacs uses to track window focus.
+    ;; Benefit: Prevents corruption of the internal focus ring. Restoring an
+    ;; obsolete timestamp can confuse the window manager or internal tracking
+    ;; regarding which frame should receive keyboard input upon restoration.
+    ;; Tradeoff: None. This is ephemeral internal state with no practical
+    ;; utility to restore.
+    (last-focus-update . :never)
+
+    ;; Controls the application icon name displayed by the operating system.
+    ;; Benefit: Ensures modern desktop environments and window managers apply
+    ;; the correct application icon dynamically, preventing broken taskbar
+    ;; grouping or missing icons.
+    ;; Tradeoff: Logical grouping is lost if specific scripts assign custom
+    ;; icon names to differentiate project frames in the taskbar.
+    (icon-name . :never)
+
+    ;; Internal state identifying if a frame was created as a clone of another.
+    ;; Benefit: Ensures memory safety and referential integrity. Restoring
+    ;; this parameter would link new frames to obsolete internal IDs from
+    ;; previous sessions, creating zombie references.
+    ;; Tradeoff: Breaks packages or workflows that explicitly poll this
+    ;; parameter to synchronize state between specific frame instances.
+    (clone-of . :never))
   "EasySession overrides to prevent restoration of frame geometry.")
 
 (defun easysession--filter-out-frameset-filters (list-keys)
@@ -806,19 +866,6 @@ from `easysession--overwrite-frameset-filter-alist`."
      ;; Pixel perfect width and height
      frameset--text-pixel-height
      frameset--text-pixel-width
-
-     ;; TODO experimental
-     ;; vertical-scroll-bars
-     ;; horizontal-scroll-bars
-     ;; scroll-bar-width
-     ;; scroll-bar-height
-     ;; menu-bar-lines
-     ;; tool-bar-lines
-     ;; tool-bar-position
-     ;; line-spacing
-     ;; no-special-glyphs
-
-     ;; https://www.gnu.org/software/emacs/manual/html_node/elisp/Layout-Parameters.html
 
      ;; The frame is hidden from the taskbar or panel.
      skip-taskbar
@@ -860,7 +907,20 @@ from `easysession--overwrite-frameset-filter-alist`."
      ;; offsets in frame height or width. Ignoring these can cause frames to
      ;; appear slightly larger or smaller than when saved.
      bottom-divider-width
-     right-divider-width))
+     right-divider-width
+
+     ;; Window manager hints indicating whether a frame was explicitly placed.
+     ;; It prevents layout conflicts with tiling or dynamic window managers. If
+     ;; geometry is excluded, stripping these flags gives the window manager
+     ;; full authority to tile or place new frames according to default rules.
+     user-size
+     user-position
+
+     ;; This controls if a frame is "always on top" (above) or "always on
+     ;; bottom" (below). If your session relies on a specific window layout
+     ;; (e.g., a reference window always floating above code), you need this
+     ;; parameter to preserve that relationship.
+     z-group))
   "EasySession overrides enabling restoration of frame geometry.
 
 This alist is derived from `frameset-persistent-filter-alist' with explicit
@@ -983,7 +1043,8 @@ Raise an error if the session name is invalid."
               (or (string-match-p "\\\\" session-name)
                   (string-match-p "/" session-name)))
             (string= session-name "..")
-            (string= session-name "."))
+            (string= session-name ".")
+            (string-suffix-p ".estmp" session-name))
     (user-error "[easysession] Invalid session name: %s" session-name))
   session-name)
 
@@ -1024,6 +1085,7 @@ If EXCLUDE-CURRENT is non-nil, exclude the current session name from the list."
       (seq-filter (lambda (session-name)
                     (not (or (string-equal session-name ".")
                              (string-equal session-name "..")
+                             (string-suffix-p ".estmp" session-name)
                              (and exclude-current
                                   easysession--current-session-name
                                   (string= session-name
@@ -2658,12 +2720,12 @@ AUTO-SAVE is non-nil when the save is triggered by a background timer."
                             session-dir)))
                   (t
                    (make-directory session-dir :parents)))
-
             (let* ((print-escape-newlines t)
                    (print-length nil)
                    (print-level nil)
                    (float-output-format nil)
-                   (quote-sexp (easysession--serialize-to-quoted-sexp session-data))
+                   (quote-sexp (easysession--serialize-to-quoted-sexp
+                                session-data))
                    (print-quoted t))
               (with-temp-buffer
                 (prin1 (cdr quote-sexp) (current-buffer))
@@ -2674,10 +2736,18 @@ AUTO-SAVE is non-nil when the save is triggered by a background timer."
                     (if (fboundp 'elisp-autofmt-buffer)
                         (elisp-autofmt-buffer)
                       (pp-buffer)))
-                  (let ((inhibit-quit t))
-                    (write-region (point-min) (point-max) session-file nil 'silent))
-                  nil))
-
+                  (let* ((inhibit-quit t)
+                         tmp-file)
+                    (unwind-protect
+                        (progn
+                          (setq tmp-file
+                                (make-temp-file session-file nil ".estmp"))
+                          (write-region
+                           (point-min) (point-max) tmp-file nil 'silent)
+                          (rename-file tmp-file session-file t))
+                      (when (and tmp-file (file-regular-p tmp-file))
+                        (ignore-errors (delete-file tmp-file))))))
+                nil)
               (when (called-interactively-p 'any)
                 (if (string= session-name easysession--current-session-name)
                     (easysession--message "Session saved: %s" session-name)
