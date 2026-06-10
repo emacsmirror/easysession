@@ -3,7 +3,7 @@
 ;; Copyright (C) 2026 Emre Yolcu
 
 ;; Author: Emre Yolcu
-;; Version: 1.2.2
+;; Version: 1.2.3
 ;; URL: https://github.com/jamescherti/easysession.el
 ;; Keywords: convenience
 ;; Package-Requires: ((emacs "26.1"))
