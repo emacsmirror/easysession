@@ -145,6 +145,18 @@ You can display the current session name in the mode line by setting the followi
 (setq easysession-mode-line-misc-info t)
 ```
 
+### How to display the session name in the tab bar?
+
+To add the active session name to the built-in `tab-bar-mode` tab bar, configure `tab-bar-format` to include `tab-bar-format-global` and append the session name formatting structure to `global-mode-string`:
+
+```emacs-lisp
+(setq tab-bar-format '(tab-bar-format-tabs
+                       tab-bar-format-align-right
+                       tab-bar-format-global))
+
+(add-to-list 'global-mode-string '(:eval (easysession-mode-line-session-name-format)) 'append)
+```
+
 ### How to create an empty session setup
 
 To set up a minimal environment when easysession creates a new session, you can define a function that closes all other tabs, deletes all other windows, and switches to the scratch buffer. The following Emacs Lisp code demonstrates how to achieve this:

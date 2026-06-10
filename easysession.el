@@ -233,7 +233,7 @@ activated when `easysession-save-mode' is enabled."
                                       ,value)))
 
 (defcustom easysession-mode-line-misc-info-format
-  '(:eval (easysession--mode-line-session-name-format))
+  '(:eval (easysession-mode-line-session-name-format))
   "Mode-line format used to display the session name."
   :type 'sexp
   :group 'easysession
@@ -1367,7 +1367,12 @@ termination when used from `kill-emacs-query-functions'."
             "]")
     easysession-save-mode-lighter))
 
-(defun easysession--mode-line-session-name-format ()
+(define-obsolete-function-alias
+  'easysession--mode-line-session-name-format
+  'easysession-mode-line-session-name-format
+  "1.2.3")
+
+(defun easysession-mode-line-session-name-format ()
   "Return a mode-line construct for the currently loaded session.
 The session name is displayed only when a session is actively loaded."
   (if (bound-and-true-p easysession--current-session-name)
