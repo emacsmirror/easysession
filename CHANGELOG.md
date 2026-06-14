@@ -6,6 +6,15 @@
 
 ## WIP
 
+- Update `easysession-save-session-and-close-frames` to improve reliability and flexibility:
+  - Support an optional prefix argument to silently save all file-visiting buffers.
+  - Delegate termination in standalone mode to the standard `save-buffers-kill-emacs` function.
+  - Fix a display engine error in daemon mode by deferring the deletion of the currently selected frame until all background frames are closed, avoiding abrupt window manager focus shifts.
+
+- Update `easysession--setup-load-session` to ensure frame geometry is restored only when connecting via a graphical client.
+
+## 1.2.3
+
 - Add atomic file saves using temporary files. Session data is now written to a unique temporary file and atomically renamed to the target session path upon completion. This prevents file corruption in the event of an unexpected Emacs crash or disk space error during a write operation. Additionally, session validation and completion prompts have been updated to filter out temporary files, preventing orphaned temporary files from appearing in the UI.
 
 - Update frame parameter filters for session restoration:
@@ -22,13 +31,6 @@
 - Rewrote `easysession--refresh-tabs-all-frames` to silently update auto-generated tab names across all frames. This optimization completely eliminates the slow, intrusive visual tab cycling of `tab-bar-select-tab`, which previously triggered expensive window hooks, layout updates, and display redraws. The engine now uses an isolated background sandbox to peek into inactive window configurations (`wc`) invisibly, resolving accurate names via `tab-bar-tab-name-function` without mutating the live workspace state. Explicit, user-defined tab titles are strictly respected by skipping updates on tabs with a non-nil `explicit-name` property, and frame structures are only updated via `set-frame-parameter` when an actual text disparity is detected.
 
 - Fix `easysession-visible-buffer-list` to automatically include the base buffer when an indirect buffer is visible.
-
-- Update `easysession-save-session-and-close-frames` to improve reliability and flexibility:
-  - Support an optional prefix argument to silently save all file-visiting buffers.
-  - Delegate termination in standalone mode to the standard `save-buffers-kill-emacs` function.
-  - Fix a display engine error in daemon mode by deferring the deletion of the currently selected frame until all background frames are closed, avoiding abrupt window manager focus shifts.
-
-- Update `easysession--setup-load-session` to ensure frame geometry is restored only when connecting via a graphical client.
 
 ## 1.2.2
 
