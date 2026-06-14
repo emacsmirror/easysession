@@ -1526,12 +1526,14 @@ to prevent multiple loads during the same daemon session."
             (funcall easysession-setup-load-predicate))
     (if (daemonp)
         (unless easysession--daemon-session-loaded
-          (if easysession-setup-load-session-including-geometry
+          (if (and easysession-setup-load-session-including-geometry
+                   (display-graphic-p))
               (easysession-load-including-geometry)
             (easysession-load))
 
           (setq easysession--daemon-session-loaded t))
-      (if easysession-setup-load-session-including-geometry
+      (if (and easysession-setup-load-session-including-geometry
+               (display-graphic-p))
           (easysession-load-including-geometry)
         (easysession-load)))))
 
@@ -2145,8 +2147,11 @@ Returns a list:
 ;;; Autoloaded functions
 
 ;;;###autoload
-(defun easysession-save-session-and-close-frames ()
+(defun easysession-save-session-and-close-frames (&optional arg)
   "Save the session and close all frames without stopping the Emacs daemon.
+
+If ARG is non-nil (for instance, when called with a prefix argument), silently
+save all file-visiting buffers without prompting the user.
 
 Useful in daemon mode, this simulates quitting Emacs: buffers are saved, the
 EasySession state is saved, and all frames except the initial terminal frame are
@@ -2156,23 +2161,37 @@ From the perspective of EasySession, this is functionally equivalent to an
 application shutdown: the session is fully saved and unloaded. When a new frame
 is later initialized by the Emacs daemon, EasySession restores the state as if
 the process had been freshly started."
-  (interactive)
-  (when (yes-or-no-p "[easysession] Save session and close all frames? ")
-    (message nil)
-    (easysession--with-increased-gc
-      (save-some-buffers)
-      (easysession-unload)
-      ;; Freeze display before tearing down the GUI
-      (let ((inhibit-redisplay t))
-        ;; Close all frames
-        (dolist (frame (frame-list))
-          (when (and (frame-live-p frame)
-                     (or (not (daemonp))
-                         (not (string-equal
-                               (terminal-name (frame-terminal frame))
-                               "initial_terminal"))))
+  (interactive "P")
+  (if (not (daemonp))
+      (save-buffers-kill-emacs arg)
+    (when (yes-or-no-p "[easysession] Save session and close all frames? ")
+      (message nil)
+      (easysession--with-increased-gc
+        (save-some-buffers arg)
+        (easysession-unload)
+        ;; Freeze display before tearing down the GUI
+        (let ((inhibit-redisplay t)
+              (current (selected-frame))
+              (other-frames nil))
+          ;; Close all frames
+          (dolist (frame (frame-list))
+            (when (and (frame-live-p frame)
+                       (not (string-equal
+                             (terminal-name (frame-terminal frame))
+                             "initial_terminal")))
+              (if (eq frame current)
+                  nil ; Skip the current frame for now
+                (push frame other-frames))))
+
+          (dolist (frame other-frames)
             (ignore-errors
-              (delete-frame frame t))))))))
+              (when (frame-live-p frame)
+                (delete-frame frame t))))
+
+          ;; Delete the selected frame last to prevent focus shift issues
+          (ignore-errors
+            (when (frame-live-p current)
+              (delete-frame current t))))))))
 
 ;;;###autoload
 (defun easysession-setup ()

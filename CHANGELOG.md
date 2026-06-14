@@ -23,6 +23,13 @@
 
 - Fix `easysession-visible-buffer-list` to automatically include the base buffer when an indirect buffer is visible.
 
+- Update `easysession-save-session-and-close-frames` to improve reliability and flexibility:
+  - Support an optional prefix argument to silently save all file-visiting buffers.
+  - Delegate termination in standalone mode to the standard `save-buffers-kill-emacs` function.
+  - Fix a display engine error in daemon mode by deferring the deletion of the currently selected frame until all background frames are closed, avoiding abrupt window manager focus shifts.
+
+- Update `easysession--setup-load-session` to ensure frame geometry is restored only when connecting via a graphical client.
+
 ## 1.2.2
 
 - Change all defvar options to defcustom
